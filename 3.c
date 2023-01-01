@@ -42,6 +42,33 @@ void* test(void *input){
   return (void*)wallis;
 }
 
+void createThreads(pthread_t *tids, struct args **argArr, int w, long unsigned jump){
+    long unsigned int siz;
+    long unsigned int first = 1;
+    long unsigned int last = jump;
+    
+    for(int i = 0; i < w; i++){
+      argArr[i] = (struct args *)malloc(sizeof(struct args));
+      argArr[i]->start  = first;
+      argArr[i]->end = last;
+
+      siz = last-first + 1;
+
+      first += jump;
+      last += jump;
+
+      pthread_create(&tids[i], NULL, test, (void *)argArr[i]);
+      printf("Thread #%lu size=%lu first=%lu\n", tids[i], siz, argArr[i]->start);
+    }
+}
+
+void joinThreads(pthread_t *tids, void **exits, int w){
+    for(int j = 0; j < w; j++){
+      pthread_join(tids[j], &exits[j]);
+      printf("Thread #%lu prod=%Lf\n", tids[j], *(long double*)exits[j]);
+    }
+}
+
 int main(int argc, char* argv[]){
 
   if(argc < 3 || argc > 5) return 1;
@@ -62,61 +89,22 @@ int main(int argc, char* argv[]){
   wt1 = clock();
 
   if(n%w == 0){
-    long unsigned int siz, jump = n/w;
-
-    long unsigned int first = 1;
-    long unsigned int last = jump;
-
-    for(int i = 0; i < w; i++){
-      argArr[i] = (struct args *)malloc(sizeof(struct args));
-      argArr[i]->start  = first;
-      argArr[i]->end = last;
-
-      siz = last-first + 1;
-
-      first += jump;
-      last += jump;
-
-      pthread_create(&tids[i], NULL, test, (void *)argArr[i]);
-      printf("Thread #%lu size=%lu first=%lu\n", tids[i], siz, argArr[i]->start);
-    }
-
-    for(int j = 0; j < w; j++){
-      pthread_join(tids[j], &exits[j]);
-      printf("Thread #%lu prod=%Lf\n", tids[j], *(long double*)exits[j]);
-    }
-    //////////////////// ELSE ///////////////////////
+    createThreads(tids, argArr, w, n/w);
+    joinThreads(tids, exits, w);
   }else{
     long unsigned int siz, diff = n%w;
     long unsigned int jump = (n - diff)/w;
 
-    long unsigned int first = 1;
-    long unsigned int last = jump;
-
-    for(int i = 0; i < w-1; i++){
-      argArr[i] = (struct args *)malloc(sizeof(struct args));
-      argArr[i]->start  = first;
-      argArr[i]->end = last;
-
-      siz = last-first + 1;
-
-      first += jump;
-      last += jump;
-
-      pthread_create(&tids[i], NULL, test, (void *)argArr[i]);
-      printf("Thread #%lu size=%lu first=%lu\n", tids[i], siz, argArr[i]->start);
-    }
+    createThreads(tids, argArr, w-1, jump);
+    
     argArr[w-1] = (struct args *)malloc(sizeof(struct args));
-    argArr[w-1]->start  = first;
+    argArr[w-1]->start  = n-(jump+diff);
     argArr[w-1]->end = n;
     siz = argArr[w-1]->end - argArr[w-1]->start + 1;
     pthread_create(&tids[w-1], NULL, test, (void *)argArr[w-1]);
     printf("Thread #%lu size=%lu first=%lu\n", tids[w-1], siz, argArr[w-1]->start);
 
-    for(int j = 0; j < w; j++){
-      pthread_join(tids[j], &exits[j]);
-      printf("Thread #%lu prod=%Lf\n", tids[j], *(long double*)exits[j]);
-    }
+    joinThreads(tids, exits, w);
   }
   
   wt2 = clock();
